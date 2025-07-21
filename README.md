@@ -1,9 +1,9 @@
 # VINS-Fusion
 
-## ROS2 Humble version of VINS-Fusion, suitable for running on ARM devices
-
+## ROS2 Jazzy version of VINS-Fusion, suitable for running on ARM devices
+## Replaced cv_bridge.h with cv_bridge.hpp
 ### Notices
-It is now possibler to run VINS-Fusion on ROS2 Humble using ros2 launch or ros2 run.
+It is now possibler to run VINS-Fusion on ROS2 Jazzy using ros2 launch or ros2 run.
 
 Code based in large part on [this repository](https://github.com/zinuok/VINS-Fusion-ROS2) by zinuok.
 
@@ -18,9 +18,9 @@ Code based in large part on [this repository](https://github.com/zinuok/VINS-Fus
 ### Prerequisites
 - **System**
   - Ubuntu 20.04
-  - ROS2 humble
+  - ROS2 Jazzy
 - **Libraries**
-  - OpenCV & cv_bridge for ROS2 Humble
+  - OpenCV & cv_bridge for ROS2 Jazzy
   - Ceres Solver-2.1.0
   - Eigen-3.3.9
 
