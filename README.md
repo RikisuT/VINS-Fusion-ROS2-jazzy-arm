@@ -50,7 +50,7 @@ The stock `realsense-ros` package requires a code modification to its QoS settin
     ```
 
   * **Modify QoS Settings**
-    Open `realsense-ros/realsense2_camera/src/rs_node_setup.cpp`. Locate the section where the `_synced_imu_publisher` is created and modify the code to enforce a `RELIABLE` QoS policy.
+    Open `realsense-ros/realsense2_camera/src/rs_node_setup.cpp`. Locate the section where the `_synced_imu_publisher` is created and modify the code to enforce a `RELIABLE` QoS policy. This change is crucial for preventing dropped messages that can disrupt VIO systems. For more details on this fix, see the discussion in [realsense-ros GitHub Issue \#3033](https://github.com/IntelRealSense/realsense-ros/issues/3033).
 
     **Change this block:**
 
