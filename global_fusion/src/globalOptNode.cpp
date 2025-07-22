@@ -96,7 +96,7 @@ void vio_callback(const nav_msgs::msg::Odometry::SharedPtr pose_msg)
     m_buf.lock();
     while(!gpsQueue.empty())
     {
-        sensor_msgs::msg::NavSatFix::ConstPtr GPS_msg = gpsQueue.front();
+        sensor_msgs::msg::NavSatFix::SharedPtr GPS_msg = gpsQueue.front();
         double gps_t = GPS_msg->header.stamp.sec;
         printf("vio t: %f, gps t: %f \n", t, gps_t);
         // 10ms sync tolerance

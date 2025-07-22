@@ -38,10 +38,10 @@
 #define SKIP_FIRST_CNT 10
 using namespace std;
 
-queue<sensor_msgs::msg::Image::ConstPtr> image_buf;
-queue<sensor_msgs::msg::PointCloud::ConstPtr> point_buf;
+queue<sensor_msgs::msg::Image::SharedPtr> image_buf;
+queue<sensor_msgs::msg::PointCloud::SharedPtr> point_buf;
 // queue<sensor_msgs::msg::PointCloud2::ConstPtr> point_buf2;
-queue<nav_msgs::msg::Odometry::ConstPtr> pose_buf;
+queue<nav_msgs::msg::Odometry::SharedPtr> pose_buf;
 queue<Eigen::Vector3d> odometry_buf;
 std::mutex m_buf;
 std::mutex m_process;
@@ -251,9 +251,9 @@ void process()
 {
     while (true)
     {
-        sensor_msgs::msg::Image::ConstPtr image_msg = NULL;
-        sensor_msgs::msg::PointCloud::ConstPtr point_msg = NULL;
-        nav_msgs::msg::Odometry::ConstPtr pose_msg = NULL;
+        sensor_msgs::msg::Image::SharedPtr image_msg = NULL;
+        sensor_msgs::msg::PointCloud::SharedPtr point_msg = NULL;
+        nav_msgs::msg::Odometry::SharedPtr pose_msg = NULL;
 
         // find out the messages with same time stamp
         m_buf.lock();

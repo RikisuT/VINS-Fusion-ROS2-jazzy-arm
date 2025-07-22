@@ -660,8 +660,8 @@ bool Estimator::initialStructure()
         }
     }
     // global sfm
-    Quaterniond Q[frame_count + 1];
-    Vector3d T[frame_count + 1];
+    std::vector<Eigen::Quaterniond> Q(frame_count + 1);
+    std::vector<Eigen::Vector3d> T(frame_count + 1);
     map<int, Vector3d> sfm_tracked_points;
     vector<SFMFeature> sfm_f;
     for (auto &it_per_id : f_manager.feature)
@@ -687,7 +687,7 @@ bool Estimator::initialStructure()
         return false;
     }
     GlobalSFM sfm;
-    if(!sfm.construct(frame_count + 1, Q, T, l,
+    if(!sfm.construct(frame_count + 1, Q.data(), T.data(), l,
               relative_R, relative_T,
               sfm_f, sfm_tracked_points))
     {
@@ -1068,8 +1068,8 @@ void Estimator::optimization()
     //ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
     for (int i = 0; i < frame_count + 1; i++)
     {
-        ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
-        problem.AddParameterBlock(para_Pose[i], SIZE_POSE, local_parameterization);
+        problem.AddParameterBlock(para_Pose[i], SIZE_POSE);
+        problem.SetManifold(para_Pose[i], new PoseManifold());
         if(USE_IMU)
             problem.AddParameterBlock(para_SpeedBias[i], SIZE_SPEEDBIAS);
     }
@@ -1078,8 +1078,8 @@ void Estimator::optimization()
 
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
-        ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
-        problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE, local_parameterization);
+        problem.AddParameterBlock(para_Ex_Pose[i], SIZE_POSE);
+        problem.SetManifold(para_Ex_Pose[i], new PoseManifold());
         if ((ESTIMATE_EXTRINSIC && frame_count == WINDOW_SIZE && Vs[0].norm() > 0.2) || openExEstimation)
         {
             //ROS_INFO("estimate extinsic param");

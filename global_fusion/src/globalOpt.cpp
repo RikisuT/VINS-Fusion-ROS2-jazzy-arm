@@ -114,14 +114,16 @@ void GlobalOptimization::optimize()
             ceres::Solver::Summary summary;
             ceres::LossFunction *loss_function;
             loss_function = new ceres::HuberLoss(1.0);
-            ceres::LocalParameterization* local_parameterization = new ceres::QuaternionParameterization();
+            //ceres::LocalParameterization* local_parameterization = new ceres::QuaternionParameterization();
 
             //add param
             mPoseMap.lock();
             int length = localPoseMap.size();
-            // w^t_i   w^q_i
-            double t_array[length][3];
-            double q_array[length][4];
+
+            // CHANGE: Use std::vector<std::array> instead of VLAs (fixes warnings and enables .data())
+            std::vector<std::array<double, 3>> t_array(length);
+            std::vector<std::array<double, 4>> q_array(length);
+
             map<double, vector<double>>::iterator iter;
             iter = globalPoseMap.begin();
             for (int i = 0; i < length; i++, iter++)
@@ -133,8 +135,12 @@ void GlobalOptimization::optimize()
                 q_array[i][1] = iter->second[4];
                 q_array[i][2] = iter->second[5];
                 q_array[i][3] = iter->second[6];
-                problem.AddParameterBlock(q_array[i], 4, local_parameterization);
-                problem.AddParameterBlock(t_array[i], 3);
+
+                // CHANGE: Add parameter blocks WITHOUT parameterization (Ceres 2.2 style)
+                problem.AddParameterBlock(q_array[i].data(), 4);
+                // CHANGE: Set manifold separately for quaternions (replaces old LocalParameterization)
+                problem.SetManifold(q_array[i].data(), new ceres::QuaternionManifold());
+                problem.AddParameterBlock(t_array[i].data(), 3);
             }
 
             map<double, vector<double>>::iterator iterVIO, iterVIONext, iterGPS;
@@ -162,7 +168,8 @@ void GlobalOptimization::optimize()
                     ceres::CostFunction* vio_function = RelativeRTError::Create(iPj.x(), iPj.y(), iPj.z(),
                                                                                 iQj.w(), iQj.x(), iQj.y(), iQj.z(),
                                                                                 0.1, 0.01);
-                    problem.AddResidualBlock(vio_function, NULL, q_array[i], t_array[i], q_array[i+1], t_array[i+1]);
+                    // CHANGE: Use .data() to pass pointers to Ceres
+                    problem.AddResidualBlock(vio_function, NULL, q_array[i].data(), t_array[i].data(), q_array[i+1].data(), t_array[i+1].data());
 
                     /*
                     double **para = new double *[4];
@@ -200,7 +207,8 @@ void GlobalOptimization::optimize()
                     ceres::CostFunction* gps_function = TError::Create(iterGPS->second[0], iterGPS->second[1], 
                                                                        iterGPS->second[2], iterGPS->second[3]);
                     //printf("inverse weight %f \n", iterGPS->second[3]);
-                    problem.AddResidualBlock(gps_function, loss_function, t_array[i]);
+                    // CHANGE: Use .data() to pass pointer to Ceres
+                    problem.AddResidualBlock(gps_function, loss_function, t_array[i].data());
 
                     /*
                     double **para = new double *[1];
@@ -228,22 +236,23 @@ void GlobalOptimization::optimize()
             iter = globalPoseMap.begin();
             for (int i = 0; i < length; i++, iter++)
             {
-            	vector<double> globalPose{t_array[i][0], t_array[i][1], t_array[i][2],
-            							  q_array[i][0], q_array[i][1], q_array[i][2], q_array[i][3]};
-            	iter->second = globalPose;
-            	if(i == length - 1)
-            	{
-            	    Eigen::Matrix4d WVIO_T_body = Eigen::Matrix4d::Identity(); 
-            	    Eigen::Matrix4d WGPS_T_body = Eigen::Matrix4d::Identity();
-            	    double t = iter->first;
-            	    WVIO_T_body.block<3, 3>(0, 0) = Eigen::Quaterniond(localPoseMap[t][3], localPoseMap[t][4], 
-            	                                                       localPoseMap[t][5], localPoseMap[t][6]).toRotationMatrix();
-            	    WVIO_T_body.block<3, 1>(0, 3) = Eigen::Vector3d(localPoseMap[t][0], localPoseMap[t][1], localPoseMap[t][2]);
-            	    WGPS_T_body.block<3, 3>(0, 0) = Eigen::Quaterniond(globalPose[3], globalPose[4], 
-            	                                                        globalPose[5], globalPose[6]).toRotationMatrix();
-            	    WGPS_T_body.block<3, 1>(0, 3) = Eigen::Vector3d(globalPose[0], globalPose[1], globalPose[2]);
-            	    WGPS_T_WVIO = WGPS_T_body * WVIO_T_body.inverse();
-            	}
+                // CHANGE: Access elements directly from std::array (same as before)
+                vector<double> globalPose{t_array[i][0], t_array[i][1], t_array[i][2],
+                                          q_array[i][0], q_array[i][1], q_array[i][2], q_array[i][3]};
+                iter->second = globalPose;
+                if(i == length - 1)
+                {
+                    Eigen::Matrix4d WVIO_T_body = Eigen::Matrix4d::Identity(); 
+                    Eigen::Matrix4d WGPS_T_body = Eigen::Matrix4d::Identity();
+                    double t = iter->first;
+                    WVIO_T_body.block<3, 3>(0, 0) = Eigen::Quaterniond(localPoseMap[t][3], localPoseMap[t][4], 
+                                                                       localPoseMap[t][5], localPoseMap[t][6]).toRotationMatrix();
+                    WVIO_T_body.block<3, 1>(0, 3) = Eigen::Vector3d(localPoseMap[t][0], localPoseMap[t][1], localPoseMap[t][2]);
+                    WGPS_T_body.block<3, 3>(0, 0) = Eigen::Quaterniond(globalPose[3], globalPose[4], 
+                                                                        globalPose[5], globalPose[6]).toRotationMatrix();
+                    WGPS_T_body.block<3, 1>(0, 3) = Eigen::Vector3d(globalPose[0], globalPose[1], globalPose[2]);
+                    WGPS_T_WVIO = WGPS_T_body * WVIO_T_body.inverse();
+                }
             }
             updateGlobalPath();
             //printf("global time %f \n", globalOptimizationTime.toc());
@@ -252,7 +261,7 @@ void GlobalOptimization::optimize()
         std::chrono::milliseconds dura(2000);
         std::this_thread::sleep_for(dura);
     }
-	return;
+    return;
 }
 
 

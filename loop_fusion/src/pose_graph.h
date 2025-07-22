@@ -122,21 +122,36 @@ T NormalizeAngle(const T& angle_degrees) {
   	return angle_degrees;
 };
 
-class AngleLocalParameterization {
- public:
+class AngleManifold : public ceres::Manifold {
+public:
+  // The ambient space dimension (input angle is a scalar).
+  int AmbientSize() const override { return 1; }
 
-  template <typename T>
-  bool operator()(const T* theta_radians, const T* delta_theta_radians,
-                  T* theta_radians_plus_delta) const {
-    *theta_radians_plus_delta =
-        NormalizeAngle(*theta_radians + *delta_theta_radians);
+  // The tangent space dimension (delta is also a scalar).
+  int TangentSize() const override { return 1; }
 
+  // Computes x_plus_delta = x + delta, with normalization.
+  bool Plus(const double* x, const double* delta, double* x_plus_delta) const override {
+    *x_plus_delta = NormalizeAngle(*x + *delta);
     return true;
   }
 
-  static ceres::LocalParameterization* Create() {
-    return (new ceres::AutoDiffLocalParameterization<AngleLocalParameterization,
-                                                     1, 1>);
+  // Jacobian of the Plus operation (derivative w.r.t. delta).
+  bool PlusJacobian(const double* x, double* jacobian) const override {
+    jacobian[0] = 1.0;  // Simple derivative for addition.
+    return true;
+  }
+
+  // Computes delta such that y = x + delta (normalized difference).
+  bool Minus(const double* y, const double* x, double* y_minus_x) const override {
+    *y_minus_x = NormalizeAngle(*y - *x);
+    return true;
+  }
+
+  // Jacobian of the Minus operation (derivative w.r.t. x).
+  bool MinusJacobian(const double* x, double* jacobian) const override {
+    jacobian[0] = -1.0;  // Derivative for subtraction.
+    return true;
   }
 };
 
