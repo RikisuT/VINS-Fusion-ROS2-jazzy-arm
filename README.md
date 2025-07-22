@@ -1,289 +1,191 @@
-# VINS-Fusion ROS2 Jazzy
+Of course. Here is the cleaned-up and restructured version of your documentation.
 
-## An optimization-based multi-sensor state estimator for ROS2 Jazzy on ARM devices
+# VINS-Fusion for ROS2 Jazzy on ARM
 
-This repository contains a ROS2 Jazzy compatible version of VINS-Fusion, specifically tailored for ARM devices. It incorporates fixes like replacing `cv_bridge.h` with `cv_bridge.hpp` for better compatibility.
+This repository provides a working implementation of **VINS-Fusion for ROS2 Jazzy**, specifically configured for ARM-based systems using an Intel RealSense D435i camera. It has been successfully ported to use **Ceres Solver 2.2.0**.
 
-The core code is based on [zinuok's VINS-Fusion-ROS2 repository](https://github.com/zinuok/VINS-Fusion-ROS2), which itself is a ROS2 port of the original [VINS-Fusion by HKUST-Aerial-Robotics](https://github.com/HKUST-Aerial-Robotics/VINS-Fusion).
+This is a fork of [zinuok/VINS-Fusion-ROS2](https://github.com/zinuok/VINS-Fusion-ROS2). The purpose of this fork is to provide a clear, step-by-step guide on how to get the system running, as the process requires several specific code and configuration modifications.
 
-<img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/vins_logo.png" width = 55% height = 55% div align=left />
-<img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/kitti.png" width = 34% height = 34% div align=center />
+-----
 
-VINS-Fusion is an optimization-based multi-sensor state estimator, which achieves accurate self-localization for autonomous applications (drones, cars, and AR/VR). VINS-Fusion supports multiple visual-inertial sensor types (mono camera + IMU, stereo cameras + IMU, even stereo cameras only). A toy example of fusing VINS with GPS is also provided in the original project.
+## Prerequisites
 
-**Features:**
-- Multiple sensor support (stereo cameras / mono camera+IMU / stereo cameras+IMU)
-- Online spatial calibration (transformation between camera and IMU)
-- Online temporal calibration (time offset between camera and IMU)
-- Visual loop closure
+  * **Hardware**: An ARM-based computer (e.g., NVIDIA Jetson series) with an Intel RealSense D435i depth camera.
+  * **Software**:
+      * Ubuntu 24.04
+      * ROS2 Jazzy Jubilee
+      * Docker
 
-<img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/kitti_rank.png" width = 80% height = 80% />
+-----
 
-The original VINS-Fusion was the **top** open-sourced stereo algorithm on [KITTI Odometry Benchmark](http://www.cvlibs.net/datasets/kitti/eval_odometry.php) (12.Jan.2019).
+## Setup and Installation
 
-**Authors (Original VINS-Fusion):** [Tong Qin](http://www.qintonguav.com), Shaozu Cao, Jie Pan, [Peiliang Li](https://peiliangli.github.io/), and [Shaojie Shen](http://www.ece.ust.hk/ece.php/profile/facultydetail/eeshaojie) from the [Aerial Robotics Group](http://uav.ust.hk/), [HKUST](https://www.ust.hk/)
+This guide assumes you have a ROS2 Jazzy workspace. If not, create one:
 
-**Videos (Original VINS-Fusion):**
+```bash
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws
+```
 
-<a href="https://www.youtube.com/embed/1qye82aW7nI" target="_blank"><img src="http://img.youtube.com/vi/1qye82aW7nI/0.jpg"
-alt="VINS" width="320" height="240" border="10" /></a>
+### 1\. Install Dependencies
 
-**Related Paper:** (paper is not exactly same with code)
+This project supports **Ceres Solver 2.2.0**, which is available directly from the Ubuntu 24.04 repositories. This simplifies the setup process, as you no longer need to build Ceres from source.
 
-* **Online Temporal Calibration for Monocular Visual-Inertial Systems**, Tong Qin, Shaojie Shen, IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS, 2018), **best student paper award** [pdf](https://ieeexplore.ieee.org/abstract/document/8593603)
-
-* **VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator**, Tong Qin, Peiliang Li, Shaojie Shen, IEEE Transactions on Robotics [pdf](https://ieeexplore.ieee.org/document/8421746/?arnumber=8421746&source=authoralert)
-
-*If you use VINS-Fusion for your academic research, please cite our related papers. [bib](https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/paper_bib.txt)*
-
-## 1. Prerequisites
-
-### 1.1 **System**
-- Ubuntu 20.04 (or later)
-- ROS2 Jazzy
-
-### 1.2. **Libraries**
-- OpenCV & cv_bridge for ROS2 Jazzy
-- Ceres Solver-2.1.0 (or compatible version)
-- Eigen-3.3.9 (or compatible version)
-
-### 1.3. **Calibration Tool**
-For accurate visual-inertial odometry, it is highly recommended to calibrate your camera-IMU system using `Kalibr`. You can find the Kalibr project and installation instructions [here](https://github.com/ethz-asl/kalibr).
-
-## 2. Build VINS-Fusion ROS2 Jazzy
-
-1.  **Install dependencies:**
-    Run the `install_external_deps.sh` script to install OpenCV, Ceres, and Eigen:
+  * Install Ceres Solver and its related dependencies using `apt`:
     ```bash
-    ./install_external_deps.sh
+    sudo apt update
+    sudo apt install libceres-dev
     ```
+    This command also automatically installs required libraries like Eigen3.
 
-2.  **Build the package:**
-    Navigate to your ROS2 workspace source directory (e.g., `~/ros2_ws/src`) if not already there, clone this repository, then build using `colcon`:
+### 2\. Build `realsense-ros` from Source
+
+The stock `realsense-ros` package requires a code modification to its QoS settings.
+
+  * Clone the `realsense-ros` repository using the **`ros2-master`** branch.
+
     ```bash
     cd ~/ros2_ws/src
-    git clone [https://github.com/RikisuT/VINS-Fusion-ROS2-jazzy-arm.git](https://github.com/RikisuT/VINS-Fusion-ROS2-jazzy-arm.git)
-    cd ..
-    colcon build --symlink-install
+    git clone https://github.com/IntelRealSense/realsense-ros.git -b ros2-master
+    ```
+
+  * **Modify QoS Settings**
+    Open `realsense-ros/realsense2_camera/src/rs_node_setup.cpp`. Locate the section where the `_synced_imu_publisher` is created and modify the code to enforce a `RELIABLE` QoS policy.
+
+    **Change this block:**
+
+    ```cpp
+    {
+        rmw_qos_profile_t qos = _use_intra_process ? qos_string_to_qos(DEFAULT_QOS) : qos_string_to_qos(HID_QOS);
+
+        _synced_imu_publisher = std::make_shared<SyncedImuPublisher>(_node.create_publisher<sensor_msgs::msg::Imu>("~/imu",
+                                                        rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos)));
+    }
+    ```
+
+    **To this:**
+
+    ```cpp
+    {
+        rmw_qos_profile_t qos = rmw_qos_profile_default;
+        qos.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+       _synced_imu_publisher = std::make_shared<SyncedImuPublisher>(_node.create_publisher<sensor_msgs::msg::Imu>("~/imu",
+                                                        rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(qos), qos)));
+    }
+    ```
+
+  * Build the package:
+
+    ```bash
+    cd ~/ros2_ws
+    colcon build --packages-select realsense2_camera
     source install/setup.bash
     ```
-    *(Note: If you encounter build errors, ensure all prerequisites are met and your ROS2 environment is properly sourced.)*
 
-## 3. Playing EuRoC Dataset Bags
+### 3\. Build VINS-Fusion and Supporting Packages
 
-To test VINS-Fusion with EuRoC datasets:
-
-1.  **Download a sample EuRoC dataset bag:**
+  * Clone this repository into your `src` directory:
     ```bash
-    ./get_example_data.sh
+    cd ~/ros2_ws/src
+    git clone https://github.com/RikisuT/VINS-Fusion-ROS2-jazzy-arm.git
+    ```
+  * Install remaining ROS dependencies and build all packages in the repository.
+    ```bash
+    cd ~/ros2_ws
+    rosdep install --from-paths src --ignore-src -r -y
+    colcon build
+    source install/setup.bash
+    ```
+    This will build `vins_fusion`, `camera_models`, `global_fusion`, and `loop_fusion`.
+
+-----
+
+## Calibration with Kalibr
+
+Accurate sensor calibration is **essential** for VINS-Fusion to work correctly. The process involves recording a ROS2 bag, converting it to ROS1, and then using the [Kalibr](https://github.com/ethz-asl/kalibr) toolbox in Docker.
+
+### 1\. Record Calibration Data
+
+Record a ROS2 bag file containing stereo camera and IMU data while moving the camera in front of a calibration target (e.g., a checkerboard).
+
+  * Launch the RealSense node using the provided configuration file. The path should be relative to your workspace root (`~/ros2_ws`).
+    ```bash
+    ros2 launch realsense2_camera rs_launch.py config_file:=./src/VINS-Fusion-ROS2-jazzy-arm/config/my_config/realsense_d435i_camera_config.yaml
+    ```
+  * In another terminal, record the bag file. Excite all IMU axes by moving the camera smoothly in all directions (translations and rotations) while keeping the calibration target in view. **Verify your topic names**.
+    ```bash
+    # Example topics - PLEASE VERIFY AND CHANGE THESE
+    ros2 bag record /camera/infra1/image_rect_raw /camera/infra2/image_rect_raw /camera/imu -o realsense_calib_bag
     ```
 
-2.  **Convert the bag to ROS2 format:**
-    If you don't have `rosbags-convert`, install it: `pip install rosbags`. Then convert the bag:
+### 2\. Convert ROS2 Bag to ROS1
+
+The official Kalibr Docker image uses ROS1, so you must convert your ROS2 bag.
+
+  * First, install the conversion tool using `pip`:
     ```bash
-    rosbags-convert data/V1_02_medium.bag --dst /output/path/to/save/ros2_bag
+    pip install rosbags
+    ```
+  * Next, use the `rosbags-convert` command. It requires a source path (`--src`) for the ROS2 bag directory and a destination path (`--dst`) for the new ROS1 `.bag` file.
+    ```bash
+    # Example: Convert a ROS2 bag folder named 'realsense_calib_bag'
+    rosbags-convert --src realsense_calib_bag/ --dst realsense_calib.bag
     ```
 
-3.  **Play the converted ROS2 bag:**
+### 3\. Run Kalibr in Docker
+
+Follow the [official Kalibr Docker instructions](https://www.google.com/search?q=https://github.com/ethz-asl/kalibr/wiki/installation%23docker) to run the container.
+
+  * **Prepare Data and Launch Docker**:
+    1.  Create a data folder on your host machine.
+    2.  Place your converted ROS1 `.bag` file, your `checkerboard.yaml` target file, and your `imu.yaml` configuration file inside it.
+    3.  Run the official Docker command, replacing the placeholder path with the actual path to your data folder.
+        ```bash
+        FOLDER=/path/to/your/data/on/host
+        xhost +local:root
+        docker run -it -e "DISPLAY" -e "QT_X11_NO_MITSHM=1" \
+            -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+            -v "$FOLDER:/data" --name kalibr ethzasl/kalibr:latest
+        ```
+  * **Run Calibration Commands**: Once inside the container's shell, source the ROS1 environment and run the calibration tools.
+      * **Step A: Camera Calibration (Intrinsics)**
+        ```bash
+        # Run this inside the Docker container
+        source /catkin_ws/devel/setup.bash
+        rosrun kalibr kalibr_calibrate_cameras --bag /data/realsense_calib.bag --topics /camera/infra1/image_rect_raw /camera/infra2/image_rect_raw --models pinhole-radtan --target /data/checkerboard.yaml
+        ```
+      * **Step B: Camera-IMU Calibration (Extrinsics)**
+        ```bash
+        # Run this inside the Docker container
+        rosrun kalibr kalibr_calibrate_imu_camera --bag /data/realsense_calib.bag --cam /data/camchain.yaml --imu /data/imu.yaml --target /data/checkerboard.yaml
+        ```
+
+-----
+
+## Configuration
+
+After calibration, you must update the VINS-Fusion configuration file with the values from Kalibr.
+
+1.  Open the final configuration file, for example: `config/my_config/d435i_final.yaml`.
+2.  Manually transfer the parameters from the Kalibr output files. Pay close attention to the matrix conventions, as you may need to invert the transformation matrix (`T_ci` from Kalibr vs. `T_ic` expected by VINS).
+
+-----
+
+## Execution
+
+1.  **Source Workspace**: Source your workspace in every new terminal.
     ```bash
-    ros2 bag play /output/path/to/save/ros2_bag/V1_02_medium
+    source ~/ros2_ws/install/setup.bash
     ```
-
-## 4. Launching VINS-Fusion ROS2 Jazzy
-
-You can launch VINS-Fusion using `ros2 launch` or `ros2 run`. Remember to source your ROS2 workspace before running. My custom configuration files are located in `config/`.
-
-### 4.1 Monocular Camera + IMU Example (EuRoC)
-
-Open multiple terminals and run the following commands:
-
-**Terminal 1 (Rviz):**
-```bash
-ros2 launch vins vins_rviz.launch.py
-````
-
-**Terminal 2 (VINS Node):**
-
-```bash
-ros2 run vins vins_node config/euroc/euroc_mono_imu_config.yaml
-```
-
-**Terminal 3 (Optional: Loop Fusion Node):**
-
-```bash
-ros2 run loop_fusion loop_fusion_node config/euroc/euroc_mono_imu_config.yaml
-```
-
-**Terminal 4 (Play EuRoC Bag):**
-
-```bash
-ros2 bag play YOUR_CONVERTED_EUROC_BAG_PATH/MH_01_easy
-```
-
-*(Green path is VIO odometry; red path is odometry under visual loop closure.)*
-
-### 4.2 Stereo Cameras + IMU Example (EuRoC)
-
-**Terminal 1 (Rviz):**
-
-```bash
-ros2 launch vins vins_rviz.launch.py
-```
-
-**Terminal 2 (VINS Node):**
-
-```bash
-ros2 run vins vins_node config/euroc/euroc_stereo_imu_config.yaml
-```
-
-**Terminal 3 (Optional: Loop Fusion Node):**
-
-```bash
-ros2 run loop_fusion loop_fusion_node config/euroc/euroc_stereo_imu_config.yaml
-```
-
-**Terminal 4 (Play EuRoC Bag):**
-
-```bash
-ros2 bag play YOUR_CONVERTED_EUROC_BAG_PATH/MH_01_easy
-```
-
-### 4.3 Stereo Cameras Only Example (EuRoC)
-
-**Terminal 1 (Rviz):**
-
-```bash
-ros2 launch vins vins_rviz.launch.py
-```
-
-**Terminal 2 (VINS Node):**
-
-```bash
-ros2 run vins vins_node config/euroc/euroc_stereo_config.yaml
-```
-
-**Terminal 3 (Optional: Loop Fusion Node):**
-
-```bash
-ros2 run loop_fusion loop_fusion_node config/euroc/euroc_stereo_config.yaml
-```
-
-**Terminal 4 (Play EuRoC Bag):**
-
-```bash
-ros2 bag play YOUR_CONVERTED_EUROC_BAG_PATH/MH_01_easy
-```
-
-<img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/euroc.gif" width = 430 height = 240 />
-
-## 5\. KITTI Example
-
-### 5.1 KITTI Odometry (Stereo)
-
-Download [KITTI Odometry dataset](http://www.cvlibs.net/datasets/kitti/eval_odometry.php) to `YOUR_DATASET_FOLDER`. For sequence 00:
-
-**Terminal 1 (Rviz):**
-
-```bash
-ros2 launch vins vins_rviz.launch.py
-```
-
-**Terminal 2 (VINS KITTI Odometry Test):**
-
-```bash
-ros2 run vins kitti_odom_test config/kitti_odom/kitti_config00-02.yaml YOUR_DATASET_FOLDER/sequences/00/
-```
-
-*(Optional: `ros2 run loop_fusion loop_fusion_node config/kitti_odom/kitti_config00-02.yaml` for loop closure. The original project evaluated odometry on KITTI benchmark without loop closure.)*
-
-### 5.2 KITTI GPS Fusion (Stereo + GPS)
-
-Download [KITTI raw dataset](http://www.cvlibs.net/datasets/kitti/raw_data.php) to `YOUR_DATASET_FOLDER`. For `2011_10_03_drive_0027_synced`:
-
-**Terminal 1 (Rviz):**
-
-```bash
-ros2 launch vins vins_rviz.launch.py
-```
-
-**Terminal 2 (VINS KITTI GPS Test):**
-
-```bash
-ros2 run vins kitti_gps_test config/kitti_raw/kitti_10_03_config.yaml YOUR_DATASET_FOLDER/2011_10_03_drive_0027_sync/
-```
-
-**Terminal 3 (Global Fusion Node):**
-
-```bash
-ros2 run global_fusion global_fusion_node
-```
-
-*(Green path is VIO odometry; blue path is odometry under GPS global fusion.)*
-
-<img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/kitti.gif" width = 430 height = 240 />
-
-## 6\. VINS-Fusion on Car Demonstration
-
-Download the [car bag](https://drive.google.com/open?id=10t9H1u8pMGDOI6Q2w2uezEq5Ib-Z8tLz) to `YOUR_DATASET_FOLDER`.
-
-**Terminal 1 (Rviz):**
-
-```bash
-ros2 launch vins vins_rviz.launch.py
-```
-
-**Terminal 2 (VINS Node):**
-
-```bash
-ros2 run vins vins_node config/vi_car/vi_car.yaml
-```
-
-**Terminal 3 (Optional: Loop Fusion Node):**
-
-```bash
-ros2 run loop_fusion loop_fusion_node config/vi_car/vi_car.yaml
-```
-
-**Terminal 4 (Play Car Bag):**
-
-```bash
-ros2 bag play YOUR_DATASET_FOLDER/car.bag
-```
-
-*(Green path is VIO odometry; red path is odometry under visual loop closure.)*
-
-<img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/car_gif.gif" width = 430 height = 240 />
-
-## 7\. Run with Your Devices
-
-VIO is not only a software algorithm, it heavily relies on hardware quality. For beginners, we recommend you to run VIO with professional equipment, which contains global shutter cameras and hardware synchronization.
-
-### 7.1 Configuration File
-
-Write a config file for your device. You can take config files of EuRoC and KITTI as examples, or use my provided custom config files in the `config/` directory.
-
-### 7.2 Camera Calibration
-
-VINS-Fusion supports several camera models (pinhole, mei, equidistant). You can use [camodocal](https://github.com/hengli/camodocal) to calibrate your cameras. Example data is provided under `/camera_models/calibrationdata`.
-
-To calibrate using `camodocal` (after building it in your workspace):
-
-```bash
-cd ~/ros2_ws/src/VINS-Fusion-ROS2-jazzy-arm/camera_models/camera_calib_example/
-ros2 run camera_models Calibrations -w 12 -h 8 -s 80 -i calibrationdata --camera-model pinhole
-```
-
-## 8\. Acknowledgements
-
-We use [ceres solver](http://ceres-solver.org/) for non-linear optimization and [DBoW2](https://github.com/dorian3d/DBoW2) for loop detection, a generic [camera model](https://github.com/hengli/camodocal) and [GeographicLib](https://geographiclib.sourceforge.io/).
-
-## 9\. License
-
-The source code is released under [GPLv3](http://www.gnu.org/licenses/) license.
-
-We are still working on improving the code reliability. For any technical issues, please contact Tong Qin \<qintonguavATgmail.com\>.
-
-For commercial inquiries, please contact Shaojie Shen \<eeshaojieATust.hk\>.
-
-```
-```
+2.  **Launch RealSense Camera**:
+    ```bash
+    ros2 launch realsense2_camera rs_launch.py config_file:=./src/VINS-Fusion-ROS2-jazzy-arm/config/my_config/realsense_d435i_camera_config.yaml
+    ```
+3.  **Link TF Frames**: To ensure proper visualization in RViz, publish a static transform between the `map` and `world` frames. Open a new terminal and run:
+    ```bash
+    ros2 run tf2_ros static_transform_publisher "0" "0" "0" "0" "0" "0" "map" "world"
+    ```
+4.  **Launch VINS-Fusion**: In another new terminal, launch the main VINS node with its configuration file.
+    ```bash
+    ros2 run vins vins_node ./src/VINS-Fusion-ROS2-jazzy-arm/config/my_config/d435i_final.yaml
+    ```

@@ -1,0 +1,77 @@
+%YAML:1.0
+
+#common parameters
+imu: 1        # Assuming you have an IMU
+num_of_cam: 2 # As per your Kalibr output for stereo D435i
+
+imu_topic: "/camera/camera/imu" # From your d435i_imu.yaml and april-imu.yaml
+image0_topic: "/camera/camera/infra1/image_rect_raw" # From your april-camchain-imucam.yaml
+image1_topic: "/camera/camera/infra2/image_rect_raw" # From your april-camchain-imucam.yaml
+output_path: "/home/rikisu/output/" # This is a placeholder; ensure this directory exists or create it
+
+cam0_calib: "left.yaml"  # This will be created separately
+cam1_calib: "right.yaml" # This will be created separately
+image_width: 848 # From your april-camchain-imucam.yaml
+image_height: 480 # From your april-camchain-imucam.yaml
+
+# GPU acceleration (leave as default unless you have specific GPU setup)
+use_gpu         : 0
+use_gpu_acc_flow: 0
+use_gpu_ceres   : 0
+   
+# Extrinsic parameter between IMU and Camera.
+estimate_extrinsic: 0   # 1: Optimize from initial guess (recommended with Kalibr)
+
+# Transformation from IMU/Body to Camera 0 (Infrared 1)
+# This is `T_ic` (cam0 to imu0) from your april-results-imucam.txt
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.99992871, 0.01158363, 0.00289558, -0.00621097,
+           -0.0115408, 0.9998298, -0.01439412, 0.01339237,
+           -0.00306183, 0.01435968, 0.99989221, 0.02307538,
+           0.0, 0.0, 0.0, 1.0 ]
+
+# Transformation from IMU/Body to Camera 1 (Infrared 2)
+# This is `T_ic` (cam1 to imu0) from your april-results-imucam.txt
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ 0.99993775, 0.01100004, 0.00186805, 0.04415253,
+           -0.01097211, 0.99983679, -0.01435324, 0.01283481,
+           -0.00202563, 0.01433185, 0.99989524, 0.02316573,
+           0.0, 0.0, 0.0, 1.0 ]
+
+#Multiple thread support (default to 1)
+multiple_thread: 6
+
+#feature tracker parameters
+max_cnt: 2000            # max feature number in feature tracking
+min_dist: 25            # min distance between two features
+freq: 10                # frequence (Hz) of publish tracking result.
+F_threshold: 1.0        # ransac threshold (pixel)
+show_track: 1           # publish tracking image as topic
+flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
+
+#optimization parameters
+max_solver_time: 0.04  # max solver itration time (s), to guarantee real time
+max_num_iterations: 8   # max solver itrations, to guarantee real time
+keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
+
+#imu parameters (noise values are standard deviations, from your imu.yaml)
+acc_n: 0.001865     # accelerometer measurement noise standard deviation.
+gyr_n: 0.0018685    # gyroscope measurement noise standard deviation.
+acc_w: 0.0002       # accelerometer bias random work noise standard deviation.
+gyr_w: 0.000004     # gyroscope bias random work noise standard deviation.
+g_norm: 9.805       # gravity magnitude. Using the Z component of calibrated gravity from april-results-imucam.txt as a magnitude.
+
+#unsynchronization parameters
+estimate_td: 0      # online estimate time offset between camera and imu
+td: -0.01065633760723385 # initial value of time offset. unit: s. (from cam0, as an initial guess). From april-camchain-imucam.yaml
+
+#loop closure parameters
+load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
+pose_graph_save_path: "/home/rikisu/output/pose_graph/" # save and load path
+save_image: 0                   # save image in pose graph for visualization prupose
